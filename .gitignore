@@ -1,0 +1,25 @@
+# Synthesis outputs
+synth/*.v
+synth/*.log
+synth/*.rpt
+synth/*.sdc
+synth/*.ddc
+synth/*.svf
+
+# Simulation outputs
+sim/*.vcd
+sim/*.log
+sim/*.wlf
+sim/work/
+sim/transcript
+
+# Build artifacts
+*.o
+*.out
+*.exe
+
+# Temporary files
+*~
+*.swp
+*.swo
+.DS_Store
