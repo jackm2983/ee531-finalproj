@@ -12,6 +12,8 @@ sim/*.log
 sim/*.wlf
 sim/work/
 sim/transcript
+sim/*/
+!sim/*/*.sv
 
 # Build artifacts
 *.o
