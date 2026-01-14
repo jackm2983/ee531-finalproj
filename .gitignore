@@ -7,11 +7,6 @@ synth/*.ddc
 synth/*.svf
 
 # Simulation outputs
-sim/*.vcd
-sim/*.log
-sim/*.wlf
-sim/work/
-sim/transcript
 sim/*/
 !sim/*/*.sv
 
