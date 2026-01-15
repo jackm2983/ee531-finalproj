@@ -114,6 +114,7 @@ lint_top:
 	$(LINTER) $(LINT_OPTS) --top-module $(TOP_MODULE) $(TOP_FILE)
 
 ## Verilator Simulation ###
+sim: export CCACHE_DISABLE=1
 sim: $(SIMS) 
 
 sim/%: FORCE
