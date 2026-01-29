@@ -1,10 +1,8 @@
+# Runs
+runs/
+
 # Synthesis outputs
-synth/*.v
-synth/*.log
-synth/*.rpt
-synth/*.sdc
-synth/*.ddc
-synth/*.svf
+synth/
 
 # Simulation outputs
 sim/*/
@@ -20,3 +18,4 @@ sim/*/
 *.swp
 *.swo
 .DS_Store
+*.log
