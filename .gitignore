@@ -1,8 +1,11 @@
 # Runs
-runs/
+runs/*
+!run/.gitkeep
+
 
 # Synthesis outputs
-synth/
+synth/*
+!synth/.gitkeep
 
 # Simulation outputs
 sim/*/
