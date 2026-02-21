@@ -17,50 +17,54 @@ module dct_top #(
     output logic signed [COEFF_WIDTH-1:0] m_tdata,
     output logic                       m_tvalid,
     input  logic                       m_tready,
-    output logic                       m_tlast
+    output logic                       m_tlast,
+
+    // status for testbench/demo
+    output logic                       busy
 );
 
     // -------------------------------------------------------
-    // stage interfaces (high-level)
+    // stage interfaces (cleaned widths & signedness)
     // -------------------------------------------------------
 
     // loader -> block buffer
     logic                        blk_wr_en;
-    logic [5:0]                  blk_wr_addr;
-    logic signed [DATA_WIDTH:0]  blk_wr_data;
+    logic [5:0]                  blk_wr_addr; // 0..63
+    logic signed [DATA_WIDTH-1:0] blk_wr_data; // signed/level-shifted if loader does that
     logic                        blk_full;        // 1-cycle pulse when 8x8 ready
 
     // ctrl -> block buffer read (row vectors)
     logic [2:0]                  row_sel;
     logic                        blk_rd_en;
-    logic signed [DATA_WIDTH:0]  blk_row_vec [0:7]; // 8 samples for selected row
+    logic signed [DATA_WIDTH-1:0] blk_row_vec [7:0]; // 8 samples for selected row
 
     // row dct -> transpose buffer
     logic                        row_dct_start;
     logic                        row_dct_done;
-    logic signed [INT_WIDTH-1:0] row_dct_vec [0:7];
+    logic signed [INT_WIDTH-1:0] row_dct_vec [7:0];
 
+    // transpose write
     logic                        t_wr_en;
     logic [2:0]                  t_wr_row;
-    logic signed [INT_WIDTH-1:0] t_wr_vec [0:7];
+    // reuse row_dct_vec as wr_vec
 
     // ctrl -> transpose read (col vectors)
     logic                        t_rd_en;
     logic [2:0]                  col_sel;
-    logic signed [INT_WIDTH-1:0] t_col_vec [0:7];
+    logic signed [INT_WIDTH-1:0] t_col_vec [7:0];
 
     // col dct -> coeff stream (pre-quant)
     logic                        col_dct_start;
     logic                        col_dct_done;
-    logic signed [INT_WIDTH-1:0] col_dct_vec [0:7];
+    logic signed [INT_WIDTH-1:0] col_dct_vec [7:0];
 
-    // vector->stream (64 coeffs per block, optional zigzag here or later)
+    // vector->stream (64 coeffs per block)
     logic                        cstrm_valid;
     logic                        cstrm_ready;
     logic signed [INT_WIDTH-1:0] cstrm_data;
     logic [2:0]                  cstrm_u;
     logic [2:0]                  cstrm_v;
-    logic                        cstrm_last;      // last coeff of block
+    logic                        cstrm_last;
 
     // quantizer output stream
     logic                        q_valid;
@@ -75,7 +79,7 @@ module dct_top #(
     logic                        f_last;
 
     // -------------------------------------------------------
-    // loader: axi-stream pixels -> level-shifted block writes
+    // loader
     // -------------------------------------------------------
     dct_block_loader #(
         .DATA_WIDTH(DATA_WIDTH)
@@ -95,10 +99,9 @@ module dct_top #(
 
     // -------------------------------------------------------
     // block buffer: 64 samples, row-vector read
-    // (implementation can be regs or bram; wrapper just defines interface)
     // -------------------------------------------------------
     dct_block_buf #(
-        .DATA_WIDTH(DATA_WIDTH+1)
+        .DATA_WIDTH(DATA_WIDTH)
     ) u_block_buf (
         .clk        (clk),
         .rst_n      (rst_n),
@@ -113,8 +116,7 @@ module dct_top #(
     );
 
     // -------------------------------------------------------
-    // controller: sequences row dct, transpose, col dct, and coefficient streaming
-    // also gates compute based on downstream readiness (via cstrm_ready / q_ready)
+    // controller
     // -------------------------------------------------------
     dct_ctrl u_ctrl (
         .clk           (clk),
@@ -143,14 +145,17 @@ module dct_top #(
 
         // coefficient stream backpressure
         .cstrm_ready   (cstrm_ready),
-        .q_ready       (q_ready)
+        .q_ready       (q_ready),
+
+        // optional status
+        .busy          (busy)
     );
 
     // -------------------------------------------------------
-    // 1d row dct: vector in -> vector out
+    // 1d row dct
     // -------------------------------------------------------
     dct_1d_aan #(
-        .IN_WIDTH  (DATA_WIDTH+1),
+        .IN_WIDTH  (DATA_WIDTH),
         .OUT_WIDTH (INT_WIDTH)
     ) u_row_dct (
         .clk      (clk),
@@ -162,8 +167,7 @@ module dct_top #(
     );
 
     // -------------------------------------------------------
-    // transpose buffer: row-vector write, col-vector read
-    // ping-pong optional inside, wrapper just exposes vector ports
+    // transpose buffer
     // -------------------------------------------------------
     dct_transpose_buf #(
         .WIDTH(INT_WIDTH)
@@ -181,7 +185,7 @@ module dct_top #(
     );
 
     // -------------------------------------------------------
-    // 1d col dct: vector in -> vector out
+    // 1d col dct
     // -------------------------------------------------------
     dct_1d_aan #(
         .IN_WIDTH  (INT_WIDTH),
@@ -196,9 +200,7 @@ module dct_top #(
     );
 
     // -------------------------------------------------------
-    // vector->stream: turns 8-wide col_dct_vec into 8 beats (rows 0..7),
-    // and across 8 columns produces 64 beats; optional zigzag mapping here.
-    // must support valid/ready to propagate backpressure safely.
+    // vector->stream: 8-wide -> stream of 8 then across cols -> 64
     // -------------------------------------------------------
     dct_coeff_stream u_coeff_stream (
         .clk        (clk),
@@ -217,7 +219,7 @@ module dct_top #(
     );
 
     // -------------------------------------------------------
-    // quantizer: MUST be streaming valid/ready (or wrap it to be so)
+    // quantizer: streaming s_valid/s_ready -> m_valid/m_ready
     // -------------------------------------------------------
     dct_quantizer_stream #(
         .IN_WIDTH  (INT_WIDTH),
@@ -240,8 +242,7 @@ module dct_top #(
     );
 
     // -------------------------------------------------------
-    // fifo: decouples compute from output m_tready stalls
-    // (depth >= 64 coeffs per block)
+    // fifo: decouple compute from axi output stalls
     // -------------------------------------------------------
     axis_fifo #(
         .WIDTH (COEFF_WIDTH),
@@ -263,8 +264,7 @@ module dct_top #(
     );
 
     // -------------------------------------------------------
-    // output pack: maps fifo stream to axi-stream master
-    // if zigzag not done earlier, do it here (but then needs buffering)
+    // output pack: fifo -> axi master
     // -------------------------------------------------------
     dct_output_pack #(
         .DATA_WIDTH(COEFF_WIDTH)
@@ -282,6 +282,7 @@ module dct_top #(
         .m_tlast  (m_tlast)
     );
 
+    // tie fifo backpressure to axi master ready
     assign f_ready = m_tready;
 
 endmodule
