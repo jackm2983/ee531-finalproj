@@ -1,3 +1,19 @@
+/*
+TESTING: 
+1. generate golden coeff stream for a known image in Python
+
+2. save expected outputs to expected.mem
+
+3. TB reads the image pixels from pixels.mem
+
+4. TB captures DUT outputs and compares to expected.mem
+
+5. randomize m_tready and s_tvalid to stress backpressure
+
+*/
+
+
+
 module dct_frame_wrapper #(
     parameter int DATA_WIDTH  = 8,
     parameter int COEFF_WIDTH = 12,
