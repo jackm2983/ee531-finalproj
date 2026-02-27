@@ -1,12 +1,12 @@
 {
-  "DESIGN_NAME": "trade_engine_top",
+  "DESIGN_NAME": "WRAPPER_trade_engine",
   "VERILOG_FILES": [
     "dir::rtl/simple_fifo.sv",
     "dir::rtl/tick_parser.sv",
     "dir::rtl/symbol_router.sv",
     "dir::rtl/lane_engine.sv",
     "dir::rtl/trigger_arbiter.sv",
-    "dir::rtl/trade_engine_top.sv"
+    "dir::rtl/WRAPPER_trade_engine.sv"
   ],
 
   "CLOCK_PORT": "clk",

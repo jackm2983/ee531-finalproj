@@ -1,5 +1,5 @@
-// WRAPPER_trader_engine.sv
-module WRAPPER_trader_engine #(
+// WRAPPER_trade_engine.sv
+module WRAPPER_trade_engine #(
   parameter int LANES   = 4,
   parameter int PRICE_W = 16,
   parameter int SIZE_W  = 16,

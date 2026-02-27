@@ -191,8 +191,9 @@ openlane_sta:
 	@`which openlane` --flow Classic $(OPENLANE_CONF) -T openroad.floorplan
 	@cd runs && rm -f recent && ln -sf `ls | tail -n 1` recent
 
-
-
+.PHONY: find_wns
+find_wns:
+	@bash scripts/find_wns_source.sh
 
 %.json %.yaml: FORCE
 	@echo $@
