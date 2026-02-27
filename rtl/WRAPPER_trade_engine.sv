@@ -22,6 +22,18 @@ module WRAPPER_trade_engine #(
   output logic [8+1+SEQ_W+16-1:0] trig_out_data
 );
 
+  // ========== Reset Synchronizer ==========
+  // Synchronize async reset to avoid recovery time violations
+  // The reset_synchronizer reduces reset fan-out on async path
+  logic sync_rst_n;
+
+  reset_synchronizer u_rst_sync (
+    .clk(clk),
+    .async_rst_n(rst_n),
+    .sync_rst_n(sync_rst_n)
+  );
+
+  // ========== Design Logic ==========
   logic p_valid, p_ready;
   logic [7:0] p_symbol;
   logic [PRICE_W-1:0] p_price;
@@ -29,7 +41,7 @@ module WRAPPER_trade_engine #(
   logic [SEQ_W-1:0]   p_seq;
 
   tick_parser #(.PRICE_W(PRICE_W), .SIZE_W(SIZE_W), .SEQ_W(SEQ_W)) u_parser (
-    .clk(clk), .rst_n(rst_n),
+    .clk(clk), .rst_n(sync_rst_n),
     .in_valid(tick_in_valid),
     .in_ready(tick_in_ready),
     .in_data(tick_in_data),
@@ -46,7 +58,7 @@ module WRAPPER_trade_engine #(
   logic [LANES-1:0][PAY_W-1:0] lane_tick_data;
 
   symbol_router #(.LANES(LANES), .PRICE_W(PRICE_W), .SIZE_W(SIZE_W), .SEQ_W(SEQ_W)) u_router (
-    .clk(clk), .rst_n(rst_n),
+    .clk(clk), .rst_n(sync_rst_n),
     .in_valid(p_valid),
     .in_ready(p_ready),
     .in_symbol(p_symbol),
@@ -70,7 +82,7 @@ module WRAPPER_trade_engine #(
         .K_FAST(K_FAST), .K_SLOW(K_SLOW), .K_RSI(K_RSI),
         .COOLDOWN_TICKS(COOLDOWN_TICKS)
       ) u_lane (
-        .clk(clk), .rst_n(rst_n),
+        .clk(clk), .rst_n(sync_rst_n),
         .in_valid(lane_tick_valid[g]),
         .in_ready(lane_tick_ready[g]),
         .in_data(lane_tick_data[g]),

@@ -154,50 +154,29 @@ module lane_engine #(
       if (hold_out && out_ready)
         hold_out <= 1'b0;
 
-      // Stage 3 -> Output
-      if (s3_valid) begin
-        logic out_buf_free;
-        out_buf_free = (~hold_out) || out_ready;
+      // Input -> Stage 1
+      if (in_valid && in_ready) begin
+        logic signed [31:0] delta;
+        logic [31:0] gain, loss;
 
-        if ((s3_fire_buy || s3_fire_sell) && !out_buf_free) begin
+        delta = price_s - prev_price;
+
+        if (delta > 0) begin
+          gain = delta[31:0];
+          loss = 32'd0;
         end else begin
-          if (s3_fire_buy || s3_fire_sell) begin
-            hold_out <= 1'b1;
-            hold_out_data <= {s3_symbol, s3_fire_buy, s3_seq, 8'(s3_overbought), 8'(s3_oversold)};
-            cooldown <= COOLDOWN_INIT;
-          end
-          s3_valid <= 1'b0;
+          gain = 32'd0;
+          loss = abs32(delta);
         end
-      end
 
-      // Stage 2 -> Stage 3
-      if (s2_valid) begin
-        logic now_fast_gt_slow;
-        logic cross_up, cross_dn;
-        logic overbought, oversold;
-        logic cooldown_zero;
+        prev_price <= price_s;
 
-        now_fast_gt_slow = (s2_ema_fast > s2_ema_slow);
-        cross_up = ( now_fast_gt_slow && !s2_was_fast_gt_slow);
-        cross_dn = (!now_fast_gt_slow &&  s2_was_fast_gt_slow);
-
-        overbought = is_overbought70(s2_avg_gain, s2_avg_loss);
-        oversold   = is_oversold30(s2_avg_gain, s2_avg_loss);
-
-        cooldown_zero = (cooldown == 0);
-
-        was_fast_gt_slow <= now_fast_gt_slow;
-
-        if (cooldown != 0)
-          cooldown <= cooldown - 1'b1;
-
-        s3_valid <= 1'b1;
-        s3_symbol <= s2_symbol;
-        s3_seq <= s2_seq;
-        s3_overbought <= overbought;
-        s3_oversold <= oversold;
-        s3_fire_buy  <= cross_up && !overbought && cooldown_zero;
-        s3_fire_sell <= cross_dn && !oversold   && cooldown_zero;
+        s1_valid <= 1'b1;
+        s1_symbol <= symbol;
+        s1_seq <= seq_u;
+        s1_delta <= delta;
+        s1_gain <= gain;
+        s1_loss <= loss;
       end
 
       // Stage 1 -> Stage 2
@@ -234,30 +213,52 @@ module lane_engine #(
         s2_was_fast_gt_slow <= was_fast_gt_slow;
       end
 
-      // Input -> Stage 1
-      if (in_valid && in_ready) begin
-        logic signed [31:0] delta;
-        logic [31:0] gain, loss;
+      // Stage 2 -> Stage 3
+      if (s2_valid) begin
+        logic now_fast_gt_slow;
+        logic cross_up, cross_dn;
+        logic overbought, oversold;
+        logic cooldown_zero;
 
-        delta = price_s - prev_price;
+        now_fast_gt_slow = (s2_ema_fast > s2_ema_slow);
+        cross_up = ( now_fast_gt_slow && !s2_was_fast_gt_slow);
+        cross_dn = (!now_fast_gt_slow &&  s2_was_fast_gt_slow);
 
-        if (delta > 0) begin
-          gain = delta[31:0];
-          loss = 32'd0;
-        end else begin
-          gain = 32'd0;
-          loss = abs32(delta);
-        end
+        overbought = is_overbought70(s2_avg_gain, s2_avg_loss);
+        oversold   = is_oversold30(s2_avg_gain, s2_avg_loss);
 
-        prev_price <= price_s;
+        cooldown_zero = (cooldown == 0);
 
-        s1_valid <= 1'b1;
-        s1_symbol <= symbol;
-        s1_seq <= seq_u;
-        s1_delta <= delta;
-        s1_gain <= gain;
-        s1_loss <= loss;
+        was_fast_gt_slow <= now_fast_gt_slow;
+
+        if (cooldown != 0)
+          cooldown <= cooldown - 1'b1;
+
+        s3_valid <= 1'b1;
+        s3_symbol <= s2_symbol;
+        s3_seq <= s2_seq;
+        s3_overbought <= overbought;
+        s3_oversold <= oversold;
+        s3_fire_buy  <= cross_up && !overbought && cooldown_zero;
+        s3_fire_sell <= cross_dn && !oversold   && cooldown_zero;
       end
+
+      // Stage 3 -> Output
+      if (s3_valid) begin
+        logic out_buf_free;
+        out_buf_free = (~hold_out) || out_ready;
+
+        if ((s3_fire_buy || s3_fire_sell) && !out_buf_free) begin
+        end else begin
+          if (s3_fire_buy || s3_fire_sell) begin
+            hold_out <= 1'b1;
+            hold_out_data <= {s3_symbol, s3_fire_buy, s3_seq, 8'(s3_overbought), 8'(s3_oversold)};
+            cooldown <= COOLDOWN_INIT;
+          end
+          s3_valid <= 1'b0;
+        end
+      end
+
     end
   end
 
