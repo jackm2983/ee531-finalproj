@@ -19,7 +19,8 @@ module simple_fifo #(
   assign out_valid = v0;
   assign out_data  = mem0;
 
-  assign in_ready = ~v1;  // not full
+  // not full
+  assign in_ready = ~v1;
 
   wire push = in_valid && in_ready;
   wire pop  = out_valid && out_ready;
@@ -29,7 +30,7 @@ module simple_fifo #(
       v0 <= 1'b0; v1 <= 1'b0;
       mem0 <= '0; mem1 <= '0;
     end else begin
-      unique case ({push,pop})
+      unique case ({push, pop})
         2'b10: begin // push only
           if (!v0) begin mem0 <= in_data; v0 <= 1'b1; end
           else      begin mem1 <= in_data; v1 <= 1'b1; end
@@ -38,7 +39,7 @@ module simple_fifo #(
           if (v1) begin mem0 <= mem1; v0 <= 1'b1; v1 <= 1'b0; end
           else    begin v0 <= 1'b0; end
         end
-        2'b11: begin // push + pop
+        2'b11: begin // push and pop
           if (v1) begin
             mem0 <= mem1; v0 <= 1'b1;
             mem1 <= in_data; v1 <= 1'b1;

@@ -1,7 +1,6 @@
 {
   "DESIGN_NAME": "trade_engine_top",
   "VERILOG_FILES": [
-    "dir::rtl/trade_pkg.sv",
     "dir::rtl/simple_fifo.sv",
     "dir::rtl/tick_parser.sv",
     "dir::rtl/symbol_router.sv",

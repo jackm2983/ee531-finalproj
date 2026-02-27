@@ -2,7 +2,8 @@ module symbol_router #(
   parameter int LANES   = 4,
   parameter int PRICE_W = 16,
   parameter int SIZE_W  = 16,
-  parameter int SEQ_W   = 24
+  parameter int SEQ_W   = 24,
+  parameter int FIFO_DEPTH_IS_2 = 1 // documentation only
 )(
   input  logic clk,
   input  logic rst_n,
@@ -20,7 +21,6 @@ module symbol_router #(
 );
 
   localparam int PAY_W = 8 + PRICE_W + SIZE_W + SEQ_W;
-
   localparam int LANE_BITS = (LANES<=2)?1:(LANES<=4)?2:(LANES<=8)?3:(LANES<=16)?4:5;
 
   logic [PAY_W-1:0] payload;
@@ -37,16 +37,18 @@ module symbol_router #(
     fifo_in_valid[lane_idx] = in_valid;
   end
 
+  // backpressure depends on selected lane FIFO readiness
   assign in_ready = fifo_in_ready[lane_idx];
 
   genvar g;
   generate
-    for (g=0; g<LANES; g++) begin : GEN_LANE_FIFOS
+    for (g=0; g<LANES; g++) begin : GEN_FIFOS
       simple_fifo #(.W(PAY_W)) u_fifo (
         .clk(clk), .rst_n(rst_n),
         .in_valid(fifo_in_valid[g]),
         .in_ready(fifo_in_ready[g]),
         .in_data(payload),
+
         .out_valid(lane_valid[g]),
         .out_ready(lane_ready[g]),
         .out_data(lane_data[g])

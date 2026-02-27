@@ -20,6 +20,7 @@ module tick_parser #(
 
   logic hold_valid;
 
+  // 1-deep register slice
   assign in_ready  = (~hold_valid) || out_ready;
   assign out_valid = hold_valid;
 
@@ -31,7 +32,8 @@ module tick_parser #(
       out_size   <= '0;
       out_seq    <= '0;
     end else begin
-      if (out_ready) hold_valid <= 1'b0;
+      if (out_valid && out_ready)
+        hold_valid <= 1'b0;
 
       if (in_valid && in_ready) begin
         hold_valid <= 1'b1;
