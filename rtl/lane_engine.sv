@@ -30,7 +30,7 @@ module lane_engine #(
   assign {symbol, price_u, size_u, seq_u} = in_data;
 
   logic signed [31:0] price_s;
-  assign price_s = $signed({{(32-PRICE_W){1'b0}}, price_u});
+  assign price_s = $signed({1'b0, price_u});
 
   logic hold_out;
   logic [OUT_W-1:0] hold_out_data;
@@ -60,7 +60,7 @@ module lane_engine #(
 
   function automatic logic [31:0] abs32(input logic signed [31:0] x);
     begin
-      abs32 = (x < 0) ? logic'(-x) : logic'(x);
+      abs32 = x[31] ? (~x + 1) : x;
     end
   endfunction
 
@@ -70,9 +70,9 @@ module lane_engine #(
     begin
       if ((g + l) == 0) is_overbought70 = 1'b0;
       else begin
-        three_g = {3'b0, (g << 1)} + {3'b0, g};                         // 3g
-        seven_l = {3'b0, (l << 2)} + {3'b0, (l << 1)} + {3'b0, l};      // 7l
-        is_overbought70 = (three_g > seven_l);                          // 3g > 7l  <=> 30g > 70l
+        three_g = {3'b0, (g << 1)} + {3'b0, g};
+        seven_l = {3'b0, (l << 2)} + {3'b0, (l << 1)} + {3'b0, l};
+        is_overbought70 = (three_g > seven_l);
       end
     end
   endfunction
@@ -83,9 +83,9 @@ module lane_engine #(
     begin
       if ((g + l) == 0) is_oversold30 = 1'b0;
       else begin
-        seven_g = {3'b0, (g << 2)} + {3'b0, (g << 1)} + {3'b0, g};      // 7g
-        three_l = {3'b0, (l << 1)} + {3'b0, l};                         // 3l
-        is_oversold30 = (seven_g < three_l);                            // 7g < 3l  <=> 70g < 30l
+        seven_g = {3'b0, (g << 2)} + {3'b0, (g << 1)} + {3'b0, g};
+        three_l = {3'b0, (l << 1)} + {3'b0, l};
+        is_oversold30 = (seven_g < three_l);
       end
     end
   endfunction
@@ -122,8 +122,21 @@ module lane_engine #(
       if (hold_out && out_ready)
         hold_out <= 1'b0;
 
+      if (s1_valid) begin
+        logic out_buf_free;
+        out_buf_free = (~hold_out) || out_ready;
 
-      // stage 1
+        if ((s1_fire_buy || s1_fire_sell) && !out_buf_free) begin
+        end else begin
+          if (s1_fire_buy || s1_fire_sell) begin
+            hold_out <= 1'b1;
+            hold_out_data <= {s1_symbol, s1_fire_buy, s1_seq, 8'(s1_overbought), 8'(s1_oversold)};
+            cooldown <= COOLDOWN_INIT;
+          end
+          s1_valid <= 1'b0;
+        end
+      end
+
       if (in_valid && in_ready) begin
         logic signed [31:0] delta;
         logic [31:0] gain, loss;
@@ -189,23 +202,6 @@ module lane_engine #(
         s1_fire_buy  <= cross_up && !overbought && cooldown_zero;
         s1_fire_sell <= cross_dn && !oversold   && cooldown_zero;
       end
-
-      // stage 2
-      if (s1_valid) begin
-        logic out_buf_free;
-        out_buf_free = (~hold_out) || out_ready;
-
-        if ((s1_fire_buy || s1_fire_sell) && !out_buf_free) begin
-        end else begin
-          if (s1_fire_buy || s1_fire_sell) begin
-            hold_out <= 1'b1;
-            hold_out_data <= {s1_symbol, s1_fire_buy, s1_seq, 8'(s1_overbought), 8'(s1_oversold)};
-            cooldown <= COOLDOWN_INIT;
-          end
-          s1_valid <= 1'b0;
-        end
-      end
-
     end
   end
 
