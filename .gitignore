@@ -8,9 +8,10 @@ synth/*
 !synth/.gitkeep
 
 # Simulation outputs
-sim/*/
+sim/*
+!sim/*/
+sim/*/*
 !sim/*/*.sv
-!sim/.gitkeep
 
 # Build artifacts
 *.o
