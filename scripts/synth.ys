@@ -1,0 +1,20 @@
+# Generic synthesis script for Yosys
+# Usage: DESIGN_NAME=my_design yosys -m ghdl -s synth.ys
+# Set DESIGN_NAME environment variable before running, defaults to WRAPPER_trade_engine
+
+# Read design name from environment or use default
+define DESIGN_NAME WRAPPER_trade_engine
+
+read_verilog -sv rtl/$DESIGN_NAME.sv
+hierarchy -check -top $DESIGN_NAME
+proc
+opt
+techmap
+abc -liberty $PDKPATH/libs.ref/sky130_fd_sc_hd/lib/sky130_fd_sc_hd__ss_100C_1v40.lib
+opt flatten
+tee -o synth/cell_stats.log stat
+show -format dot -prefix synth/${DESIGN_NAME}_graph
+viz -format dot -prefix synth/${DESIGN_NAME}_viz
+write_rtlil synth/${DESIGN_NAME}_rtl.il
+write_verilog -sv synth/${DESIGN_NAME}_synth.sv
+write_spice -top $DESIGN_NAME synth/${DESIGN_NAME}_netlist.spice

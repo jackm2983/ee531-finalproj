@@ -193,7 +193,7 @@ openlane_sta:
 
 .PHONY: find_wns
 find_wns:
-	@bash scripts/find_wns_source.sh
+	@bash scripts/find_wns_source.sh $(filter-out $@,$(MAKECMDGOALS))
 
 %.json %.yaml: FORCE
 	@echo $@
@@ -203,6 +203,25 @@ FORCE: ;
 
 openroad:
 	scripts/openroad_launch.sh | openroad
+
+.PHONY: magic_layout
+magic_layout:
+	@if [ -z "$(PDKPATH)" ]; then \
+		printf "$(RED)Error: PDKPATH environment variable not set$(RESET)\n"; \
+		exit 1; \
+	fi
+	@GDS_FILE=$$(find runs/recent/final/gds -name "*.gds" 2>/dev/null | head -1); \
+	if [ -z "$$GDS_FILE" ]; then \
+		printf "$(RED)Error: No GDS file found in runs/recent/final/gds/$(RESET)\n"; \
+		exit 1; \
+	fi
+	@MAGICRC="$(PDKPATH)/libs.tech/magic/sky130A.magicrc"; \
+	if [ ! -f "$$MAGICRC" ]; then \
+		printf "$(RED)Error: Magic RC file not found at $$MAGICRC$(RESET)\n"; \
+		exit 1; \
+	fi
+	@printf "$(BRIGHT_CYAN)Opening Magic with GDS: $$GDS_FILE$(RESET)\n"
+	@magic -rc "$$MAGICRC" "$$GDS_FILE"
 
 .PHONY: clean
 clean:
@@ -251,6 +270,10 @@ help:
 	@printf "\n$(BLUE)Openlane$(RESET)\n"
 	@printf "$(BLUE)openlane$(RESET) runs the OpenLane 2.0 Classic Flow\n"
 	@printf "requires config.yaml or config.json in the project home\n"
+
+	@printf "\n$(BRIGHT_CYAN)Magic Layout Viewer$(RESET)\n"
+	@printf "$(BRIGHT_CYAN)magic_layout$(RESET) opens the layout in Magic viewer\n"
+	@printf "requires PDKPATH environment variable and runs/recent/final/gds/ output\n"
 
 	@printf "\n$(RED)RARS$(RESET)\n"
 	@printf "$(RED)rars$(RESET) opens RARS\n"
