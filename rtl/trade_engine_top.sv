@@ -1,3 +1,4 @@
+// trade_engine_top.sv
 module trade_engine_top #(
   parameter int LANES   = 4,
   parameter int PRICE_W = 16,
@@ -21,7 +22,6 @@ module trade_engine_top #(
   output logic [8+1+SEQ_W+16-1:0] trig_out_data
 );
 
-  // parser outputs
   logic p_valid, p_ready;
   logic [7:0] p_symbol;
   logic [PRICE_W-1:0] p_price;
@@ -33,7 +33,6 @@ module trade_engine_top #(
     .in_valid(tick_in_valid),
     .in_ready(tick_in_ready),
     .in_data(tick_in_data),
-
     .out_valid(p_valid),
     .out_ready(p_ready),
     .out_symbol(p_symbol),
@@ -42,8 +41,7 @@ module trade_engine_top #(
     .out_seq(p_seq)
   );
 
-  // router outputs (per-lane tick payload)
-  localparam int PAY_W  = 8 + PRICE_W + SIZE_W + SEQ_W;
+  localparam int PAY_W = 8 + PRICE_W + SIZE_W + SEQ_W;
   logic [LANES-1:0] lane_tick_valid, lane_tick_ready;
   logic [LANES-1:0][PAY_W-1:0] lane_tick_data;
 
@@ -55,13 +53,11 @@ module trade_engine_top #(
     .in_price(p_price),
     .in_size(p_size),
     .in_seq(p_seq),
-
     .lane_valid(lane_tick_valid),
     .lane_ready(lane_tick_ready),
     .lane_data(lane_tick_data)
   );
 
-  // lanes produce triggers
   localparam int TRIG_W = 8 + 1 + SEQ_W + 16;
   logic [LANES-1:0] lane_trig_valid, lane_trig_ready;
   logic [LANES-1:0][TRIG_W-1:0] lane_trig_data;
@@ -75,11 +71,9 @@ module trade_engine_top #(
         .COOLDOWN_TICKS(COOLDOWN_TICKS)
       ) u_lane (
         .clk(clk), .rst_n(rst_n),
-
         .in_valid(lane_tick_valid[g]),
         .in_ready(lane_tick_ready[g]),
         .in_data(lane_tick_data[g]),
-
         .out_valid(lane_trig_valid[g]),
         .out_ready(lane_trig_ready[g]),
         .out_data(lane_trig_data[g])
@@ -88,11 +82,9 @@ module trade_engine_top #(
   endgenerate
 
   trigger_arbiter #(.LANES(LANES), .OUT_W(TRIG_W)) u_arb (
-    .clk(clk), .rst_n(rst_n),
     .in_valid(lane_trig_valid),
     .in_ready(lane_trig_ready),
     .in_data(lane_trig_data),
-
     .out_valid(trig_out_valid),
     .out_ready(trig_out_ready),
     .out_data(trig_out_data)

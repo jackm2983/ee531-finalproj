@@ -1,3 +1,4 @@
+// simple_fifo.sv
 module simple_fifo #(
   parameter int W = 64
 ) (
@@ -18,9 +19,7 @@ module simple_fifo #(
 
   assign out_valid = v0;
   assign out_data  = mem0;
-
-  // not full
-  assign in_ready = ~v1;
+  assign in_ready  = ~v1;
 
   wire push = in_valid && in_ready;
   wire pop  = out_valid && out_ready;
@@ -31,15 +30,15 @@ module simple_fifo #(
       mem0 <= '0; mem1 <= '0;
     end else begin
       unique case ({push, pop})
-        2'b10: begin // push only
+        2'b10: begin
           if (!v0) begin mem0 <= in_data; v0 <= 1'b1; end
           else      begin mem1 <= in_data; v1 <= 1'b1; end
         end
-        2'b01: begin // pop only
+        2'b01: begin
           if (v1) begin mem0 <= mem1; v0 <= 1'b1; v1 <= 1'b0; end
           else    begin v0 <= 1'b0; end
         end
-        2'b11: begin // push and pop
+        2'b11: begin
           if (v1) begin
             mem0 <= mem1; v0 <= 1'b1;
             mem1 <= in_data; v1 <= 1'b1;
@@ -48,7 +47,7 @@ module simple_fifo #(
             v1 <= 1'b0;
           end
         end
-        default: ; // nothing
+        default: ;
       endcase
     end
   end

@@ -1,55 +1,45 @@
+// lane_engine.sv
 module lane_engine #(
   parameter int PRICE_W = 16,
   parameter int SIZE_W  = 16,
   parameter int SEQ_W   = 24,
 
-  parameter int K_FAST = 3,        // alpha = 1/8
-  parameter int K_SLOW = 5,        // alpha = 1/32
-  parameter int K_RSI  = 4,        // smoothing
+  parameter int K_FAST = 3,
+  parameter int K_SLOW = 5,
+  parameter int K_RSI  = 4,
 
   parameter int COOLDOWN_TICKS = 16
 )(
   input  logic clk,
   input  logic rst_n,
 
-  // Input stream
   input  logic in_valid,
   output logic in_ready,
   input  logic [8+PRICE_W+SIZE_W+SEQ_W-1:0] in_data,
 
-  // Output trigger stream
   output logic out_valid,
   input  logic out_ready,
   output logic [8+1+SEQ_W+16-1:0] out_data
 );
 
-  localparam int IN_W   = 8+PRICE_W+SIZE_W+SEQ_W;
-  localparam int OUT_W  = 8+1+SEQ_W+16;
+  localparam int OUT_W = 8 + 1 + SEQ_W + 16;
 
-  // Unpack incoming payload
   logic [7:0] symbol;
   logic [PRICE_W-1:0] price_u;
   logic [SIZE_W-1:0]  size_u;
   logic [SEQ_W-1:0]   seq_u;
   assign {symbol, price_u, size_u, seq_u} = in_data;
 
-  // Internal signed price (extend)
   logic signed [31:0] price_s;
-  assign price_s = $signed({1'b0, price_u});
+  assign price_s = $signed({{(32-PRICE_W){1'b0}}, price_u});
 
-  // Output register slice (1-deep)
   logic hold_out;
   logic [OUT_W-1:0] hold_out_data;
-
   assign out_valid = hold_out;
   assign out_data  = hold_out_data;
 
-  // We can accept a new tick if we are not currently holding an output,
-  // OR if downstream will take our held output this cycle.
-  // This ensures we never overwrite an output trigger.
   assign in_ready = (~hold_out) || out_ready;
 
-  // === Per-lane state ===
   logic signed [31:0] prev_price;
   logic signed [31:0] ema_fast, ema_slow;
   logic [31:0] avg_gain, avg_loss;
@@ -57,8 +47,8 @@ module lane_engine #(
 
   localparam int CD_W = (COOLDOWN_TICKS < 2) ? 1 : $clog2(COOLDOWN_TICKS+1);
   logic [CD_W-1:0] cooldown;
+  localparam logic [CD_W-1:0] COOLDOWN_INIT = CD_W'(COOLDOWN_TICKS);
 
-  // Helpers
   function automatic logic signed [31:0] ema_update(
     input logic signed [31:0] ema,
     input logic signed [31:0] p,
@@ -72,19 +62,20 @@ module lane_engine #(
   endfunction
 
   function automatic logic [31:0] abs32(input logic signed [31:0] x);
-    abs32 = x[31] ? logic'(-x) : logic'(x);
+    logic signed [31:0] y;
+    begin
+      y = (x < 0) ? -x : x;
+      abs32 = y[31:0];
+    end
   endfunction
 
-  // RSI flags without division:
-  // RSI > 70  <=> g*30 > l*70
-  // RSI < 30  <=> g*70 < l*30
   function automatic logic is_overbought70(input logic [31:0] g, input logic [31:0] l);
     logic [47:0] lhs, rhs;
     begin
       if ((g + l) == 0) is_overbought70 = 1'b0;
       else begin
-        lhs = g * 30;
-        rhs = l * 70;
+        lhs = g * 48'd30;
+        rhs = l * 48'd70;
         is_overbought70 = (lhs > rhs);
       end
     end
@@ -95,32 +86,29 @@ module lane_engine #(
     begin
       if ((g + l) == 0) is_oversold30 = 1'b0;
       else begin
-        lhs = g * 70;
-        rhs = l * 30;
+        lhs = g * 48'd70;
+        rhs = l * 48'd30;
         is_oversold30 = (lhs < rhs);
       end
     end
   endfunction
 
-  // Main sequential logic
   always_ff @(posedge clk or negedge rst_n) begin
     if (!rst_n) begin
-      prev_price <= 0;
-      ema_fast   <= 0;
-      ema_slow   <= 0;
-      avg_gain   <= 0;
-      avg_loss   <= 0;
+      prev_price <= 32'sd0;
+      ema_fast   <= 32'sd0;
+      ema_slow   <= 32'sd0;
+      avg_gain   <= 32'd0;
+      avg_loss   <= 32'd0;
       was_fast_gt_slow <= 1'b0;
       cooldown   <= '0;
 
       hold_out <= 1'b0;
       hold_out_data <= '0;
     end else begin
-      // consume output if downstream ready
       if (hold_out && out_ready)
         hold_out <= 1'b0;
 
-      // accept tick when handshake succeeds
       if (in_valid && in_ready) begin
         logic signed [31:0] delta;
         logic [31:0] gain, loss;
@@ -131,56 +119,52 @@ module lane_engine #(
         logic now_fast_gt_slow;
         logic cross_up, cross_dn;
         logic overbought, oversold;
+        logic fire_buy, fire_sell;
 
-        // compute delta/gain/loss
+        logic signed [32:0] tmp_gain, tmp_loss;
+
         delta = price_s - prev_price;
+
         if (delta > 0) begin
-          gain = logic'(delta);
-          loss = 0;
+          gain = delta[31:0];
+          loss = 32'd0;
         end else begin
-          gain = 0;
+          gain = 32'd0;
           loss = abs32(delta);
         end
 
-        // init EMAs on first tick (ema==0 is a simple heuristic)
         if (ema_fast == 0) next_ema_fast = price_s;
         else               next_ema_fast = ema_update(ema_fast, price_s, K_FAST);
 
         if (ema_slow == 0) next_ema_slow = price_s;
         else               next_ema_slow = ema_update(ema_slow, price_s, K_SLOW);
 
-        // smoother update (EMA-like)
-        next_avg_gain = avg_gain + (($signed({1'b0,gain}) - $signed({1'b0,avg_gain})) >>> K_RSI);
-        next_avg_loss = avg_loss + (($signed({1'b0,loss}) - $signed({1'b0,avg_loss})) >>> K_RSI);
+        tmp_gain = $signed({1'b0, avg_gain}) +
+                   (($signed({1'b0, gain}) - $signed({1'b0, avg_gain})) >>> K_RSI);
+        tmp_loss = $signed({1'b0, avg_loss}) +
+                   (($signed({1'b0, loss}) - $signed({1'b0, avg_loss})) >>> K_RSI);
+        next_avg_gain = tmp_gain[31:0];
+        next_avg_loss = tmp_loss[31:0];
 
-        // crossover detection based on updated EMAs (more correct than using old ones)
         now_fast_gt_slow = (next_ema_fast > next_ema_slow);
         cross_up = ( now_fast_gt_slow && !was_fast_gt_slow);
         cross_dn = (!now_fast_gt_slow &&  was_fast_gt_slow);
 
-        // RSI flags based on updated smoothers
         overbought = is_overbought70(next_avg_gain, next_avg_loss);
         oversold   = is_oversold30(next_avg_gain, next_avg_loss);
 
-        // cooldown decrement each accepted tick
         if (cooldown != 0)
           cooldown <= cooldown - 1'b1;
 
-        // decision gating
-        logic fire_buy, fire_sell;
         fire_buy  = cross_up && !overbought && (cooldown == 0);
         fire_sell = cross_dn && !oversold   && (cooldown == 0);
 
-        // If a trade fires, produce one output trigger (stored in hold_out)
-        // Note: in_ready prevents overwriting when hold_out is stuck and out_ready=0.
         if (fire_buy || fire_sell) begin
           hold_out <= 1'b1;
-          hold_out_data <= { symbol, fire_buy /*side*/, seq_u,
-                             8'(overbought), 8'(oversold) };
-          cooldown <= COOLDOWN_TICKS[CD_W-1:0];
+          hold_out_data <= {symbol, fire_buy, seq_u, 8'(overbought), 8'(oversold)};
+          cooldown <= COOLDOWN_INIT;
         end
 
-        // commit state
         prev_price <= price_s;
         ema_fast   <= next_ema_fast;
         ema_slow   <= next_ema_slow;

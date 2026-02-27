@@ -1,3 +1,4 @@
+// tick_parser.sv
 module tick_parser #(
   parameter int PRICE_W = 16,
   parameter int SIZE_W  = 16,
@@ -20,7 +21,6 @@ module tick_parser #(
 
   logic hold_valid;
 
-  // 1-deep register slice
   assign in_ready  = (~hold_valid) || out_ready;
   assign out_valid = hold_valid;
 

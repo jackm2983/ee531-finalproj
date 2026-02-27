@@ -1,10 +1,8 @@
+// trigger_arbiter.sv
 module trigger_arbiter #(
-  parameter int LANES  = 4,
-  parameter int OUT_W  = 8+1+24+16
+  parameter int LANES = 4,
+  parameter int OUT_W = 8+1+24+16
 )(
-  input  logic clk,
-  input  logic rst_n,
-
   input  logic [LANES-1:0] in_valid,
   output logic [LANES-1:0] in_ready,
   input  logic [LANES-1:0][OUT_W-1:0] in_data,
