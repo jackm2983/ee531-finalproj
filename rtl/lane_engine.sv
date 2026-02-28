@@ -114,7 +114,7 @@ module lane_engine #(
 
   assign in_ready = ~s1_valid;
 
-  always_ff @(posedge clk or negedge rst_n) begin
+  always_ff @(posedge clk) begin
     if (!rst_n) begin
       prev_price <= 32'sd0;
       ema_fast   <= 32'sd0;

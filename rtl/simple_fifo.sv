@@ -24,7 +24,7 @@ module simple_fifo #(
   wire push = in_valid && in_ready;
   wire pop  = out_valid && out_ready;
 
-  always_ff @(posedge clk or negedge rst_n) begin
+  always_ff @(posedge clk) begin
     if (!rst_n) begin
       v0 <= 1'b0; v1 <= 1'b0;
       mem0 <= '0; mem1 <= '0;
