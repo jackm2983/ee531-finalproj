@@ -61,6 +61,7 @@ module tb_lane_engine;
   endtask
 
   initial begin
+    int seq = 0;
     rst_n     = 0;
     in_valid  = 0;
     in_data   = '0;
@@ -69,14 +70,31 @@ module tb_lane_engine;
     repeat (5) @(posedge clk);
     rst_n = 1;
 
-    // force strong downtrend
-    for (int i = 0; i < 20; i++) begin
-      send_tick(8'h01, 16'(200 - i*5), 16'd10, 24'(i));
+    
+
+    // phase 1: strong downtrend (prepare for buy)
+    for (int i = 0; i < 40; i++) begin
+      send_tick(8'h01, 16'(300 - i*6), 16'd10, 24'(seq++));
     end
 
-    // then strong uptrend to force fast EMA crossover
-    for (int i = 0; i < 30; i++) begin
-      send_tick(8'h01, 16'(100 + i*8), 16'd10, 24'(20+i));
+    // phase 2: strong uptrend -> buy #1
+    for (int i = 0; i < 40; i++) begin
+      send_tick(8'h01, 16'(60 + i*8), 16'd10, 24'(seq++));
+    end
+
+    // phase 3: strong downtrend -> sell #1
+    for (int i = 0; i < 40; i++) begin
+      send_tick(8'h01, 16'(400 - i*7), 16'd10, 24'(seq++));
+    end
+
+    // phase 4: strong uptrend -> buy #2
+    for (int i = 0; i < 40; i++) begin
+      send_tick(8'h01, 16'(50 + i*9), 16'd10, 24'(seq++));
+    end
+
+    // phase 5: strong downtrend -> sell #2
+    for (int i = 0; i < 40; i++) begin
+      send_tick(8'h01, 16'(450 - i*8), 16'd10, 24'(seq++));
     end
 
     repeat (50) @(posedge clk);
