@@ -22,12 +22,14 @@ module WRAPPER_trade_engine #(
   output logic [8+1+SEQ_W+16-1:0] trig_out_data
 );
 
-  // ========== Design Logic ==========
   logic p_valid, p_ready;
   logic [7:0] p_symbol;
   logic [PRICE_W-1:0] p_price;
   logic [SIZE_W-1:0]  p_size;
   logic [SEQ_W-1:0]   p_seq;
+
+  // needs AXI-stream interface into the tick parser
+  // AXI-stream_interface();
 
   tick_parser #(.PRICE_W(PRICE_W), .SIZE_W(SIZE_W), .SEQ_W(SEQ_W)) u_parser (
     .clk(clk), .rst_n(rst_n),
