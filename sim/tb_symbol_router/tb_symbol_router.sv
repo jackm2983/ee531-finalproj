@@ -1,24 +1,4 @@
-`timescale 1ns / 1ps
-//////////////////////////////////////////////////////////////////////////////////
-// Company: 
-// Engineer: 
-// 
-// Create Date: 02/26/2026 06:33:28 PM
-// Design Name: 
-// Module Name: tb_symbol_router
-// Project Name: 
-// Target Devices: 
-// Tool Versions: 
-// Description: 
-// 
-// Dependencies: 
-// 
-// Revision:
-// Revision 0.01 - File Created
-// Additional Comments:
-// 
-//////////////////////////////////////////////////////////////////////////////////
-
+// tb_symbol_router.sv
 
 `timescale 1ns/1ps
 
@@ -68,6 +48,11 @@ module tb_symbol_router;
     .lane_ready(lane_ready),
     .lane_data(lane_data)
   );
+
+    initial begin 
+        $dumpfile("tb_symbol_router.vcd");  
+        $dumpvars(0, tb_symbol_router); 
+    end
 
   // ===== Clock generation (10ns period) =====
   initial clk = 1'b0;

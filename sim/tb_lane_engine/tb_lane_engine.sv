@@ -70,6 +70,12 @@ module tb_lane_engine;
     .out_data(out_data)
   );
 
+
+  initial begin 
+        $dumpfile("tb_lane_engine.vcd");  
+        $dumpvars(0, tb_lane_engine); 
+  end
+
   // === Clock 10ns period ===
   initial clk = 1'b0;
   always #5 clk = ~clk;
