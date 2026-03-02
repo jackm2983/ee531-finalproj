@@ -1,44 +1,13 @@
-`timescale 1ns / 1ps
-//////////////////////////////////////////////////////////////////////////////////
-// Company: 
-// Engineer: 
-// 
-// Create Date: 02/27/2026 01:23:15 AM
-// Design Name: 
-// Module Name: tb_lane_engine
-// Project Name: 
-// Target Devices: 
-// Tool Versions: 
-// Description: 
-// 
-// Dependencies: 
-// 
-// Revision:
-// Revision 0.01 - File Created
-// Additional Comments:
-// 
-//////////////////////////////////////////////////////////////////////////////////
-
-
 `timescale 1ns/1ps
 
 module tb_lane_engine;
 
-  // === Match lane_engine parameters ===
-  parameter int PRICE_W = 16;
-  parameter int SIZE_W  = 16;
-  parameter int SEQ_W   = 24;
+  localparam int PRICE_W = 16;
+  localparam int SIZE_W  = 16;
+  localparam int SEQ_W   = 24;
+  localparam int IN_W    = 8 + PRICE_W + SIZE_W + SEQ_W;
+  localparam int OUT_W   = 8 + 1 + SEQ_W + 16;
 
-  parameter int K_FAST = 3;
-  parameter int K_SLOW = 5;
-  parameter int K_RSI  = 4;
-
-  parameter int COOLDOWN_TICKS = 4; // smaller so it's easier to see behavior
-
-  localparam int IN_W  = 8 + PRICE_W + SIZE_W + SEQ_W;
-  localparam int OUT_W = 8 + 1 + SEQ_W + 16;
-
-  // === Signals ===
   logic clk;
   logic rst_n;
 
@@ -50,133 +19,73 @@ module tb_lane_engine;
   logic out_ready;
   logic [OUT_W-1:0] out_data;
 
-  // === Instantiate DUT ===
   lane_engine #(
     .PRICE_W(PRICE_W),
-    .SIZE_W(SIZE_W),
-    .SEQ_W(SEQ_W),
-    .K_FAST(K_FAST),
-    .K_SLOW(K_SLOW),
-    .K_RSI(K_RSI),
-    .COOLDOWN_TICKS(COOLDOWN_TICKS)
+    .SIZE_W (SIZE_W),
+    .SEQ_W  (SEQ_W)
   ) dut (
-    .clk(clk),
-    .rst_n(rst_n),
-    .in_valid(in_valid),
-    .in_ready(in_ready),
-    .in_data(in_data),
+    .clk      (clk),
+    .rst_n    (rst_n),
+    .in_valid (in_valid),
+    .in_ready (in_ready),
+    .in_data  (in_data),
     .out_valid(out_valid),
     .out_ready(out_ready),
-    .out_data(out_data)
+    .out_data (out_data)
   );
-
 
   initial begin 
         $dumpfile("tb_lane_engine.vcd");  
         $dumpvars(0, tb_lane_engine); 
   end
 
-  // === Clock 10ns period ===
-  initial clk = 1'b0;
+  // clock
+  initial clk = 0;
   always #5 clk = ~clk;
 
-  // === Print trigger when it transfers ===
-  always @(posedge clk) begin
-    if (rst_n && out_valid && out_ready) begin
-      // out_data = {symbol, side, seq, debug[15:0]}
-      $display("T=%0t TRIG sym=%0h side=%0d seq=%0d debug=0x%0h",
-               $time,
-               out_data[OUT_W-1 -: 8],      // symbol
-               out_data[OUT_W-9],           // side bit (1=BUY)
-               out_data[SEQ_W+16-1 -: SEQ_W], // seq (middle)
-               out_data[15:0]);             // debug
+  // simple send task
+  task send_tick(
+    input [7:0] symbol,
+    input [PRICE_W-1:0] price,
+    input [SIZE_W-1:0]  size,
+    input [SEQ_W-1:0]   seq
+  );
+    begin
+      @(posedge clk);
+      in_valid = 1'b1;
+      in_data  = {symbol, price, size, seq};
+      wait (in_ready);
+      @(posedge clk);
+      in_valid = 1'b0;
     end
-  end
+  endtask
 
   initial begin
-    // init
-    rst_n = 0;
-    in_valid = 0;
-    in_data  = '0;
+    rst_n     = 0;
+    in_valid  = 0;
+    in_data   = '0;
     out_ready = 1;
 
-    // reset
-    #20;
+    repeat (5) @(posedge clk);
     rst_n = 1;
 
-    // We will send ticks for symbol 0x02.
-    // in_data format: {symbol, price, size, seq}
-    //
-    // Price pattern: big drop then gradual rise to encourage EMA crossover.
-    // seq increments each tick.
-
-    // Tick 1: price=1000
-    #10;
-    if (in_ready) begin
-      in_data  = {8'h02, 16'd1000, 16'd1, 24'd1};
-      in_valid = 1;
+    // force strong downtrend
+    for (int i = 0; i < 20; i++) begin
+      send_tick(8'h01, 16'(200 - i*5), 16'd10, 24'(i));
     end
-    #10; in_valid = 0;
 
-    // Tick 2: price=200 (big loss)
-    #20;
-    if (in_ready) begin
-      in_data  = {8'h02, 16'd200, 16'd1, 24'd2};
-      in_valid = 1;
+    // then strong uptrend to force fast EMA crossover
+    for (int i = 0; i < 30; i++) begin
+      send_tick(8'h01, 16'(100 + i*8), 16'd10, 24'(20+i));
     end
-    #10; in_valid = 0;
 
-    // Tick 3: price=400
-    #20;
-    if (in_ready) begin
-      in_data  = {8'h02, 16'd400, 16'd1, 24'd3};
-      in_valid = 1;
-    end
-    #10; in_valid = 0;
-
-    // Tick 4: price=800
-    #20;
-    if (in_ready) begin
-      in_data  = {8'h02, 16'd800, 16'd1, 24'd4};
-      in_valid = 1;
-    end
-    #10; in_valid = 0;
-
-    // Tick 5: price=1200
-    #20;
-    if (in_ready) begin
-      in_data  = {8'h02, 16'd1200, 16'd1, 24'd5};
-      in_valid = 1;
-    end
-    #10; in_valid = 0;
-
-    // Tick 6: price=1600
-    #20;
-    if (in_ready) begin
-      in_data  = {8'h02, 16'd1600, 16'd1, 24'd6};
-      in_valid = 1;
-    end
-    #10; in_valid = 0;
-
-    // Tick 7: price=2200 (push upward)
-    #20;
-    if (in_ready) begin
-      in_data  = {8'h02, 16'd2200, 16'd1, 24'd7};
-      in_valid = 1;
-    end
-    #10; in_valid = 0;
-
-    // Optional: stall output for a bit (to see hold behavior)
-    // If a trigger happens around here, it will be held.
-    #20;
-    out_ready = 0;
-    #40;
-    out_ready = 1;
-
-    // Let simulation run
-    #200;
-    $display("DONE");
+    repeat (50) @(posedge clk);
     $finish;
   end
+
+initial begin
+  #100000;
+  $fatal("timeout");
+end
 
 endmodule

@@ -28,7 +28,7 @@ module trigger_arbiter #(
 
     // check lanes starting from (last_winner + 1)
     for (int i = 1; i <= LANES; i++) begin
-      int idx = (last_winner + i) % LANES;
+      int idx = (int'(last_winner) + i) % LANES;
       if (!found && in_valid[idx]) begin
         found = 1'b1;
         sel   = idx[SEL_W-1:0];

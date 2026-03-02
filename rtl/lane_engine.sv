@@ -179,6 +179,8 @@ module lane_engine #(
         s1_loss <= loss;
       end
 
+
+
       // Stage 1 -> Stage 2
       if (s1_valid) begin
         logic signed [31:0] next_ema_fast, next_ema_slow;
@@ -204,6 +206,7 @@ module lane_engine #(
         avg_loss   <= next_avg_loss;
 
         s2_valid <= 1'b1;
+        s1_valid <= 1'b0;
         s2_symbol <= s1_symbol;
         s2_seq <= s1_seq;
         s2_ema_fast <= next_ema_fast;
@@ -235,6 +238,7 @@ module lane_engine #(
           cooldown <= cooldown - 1'b1;
 
         s3_valid <= 1'b1;
+        s2_valid <= 1'b0;
         s3_symbol <= s2_symbol;
         s3_seq <= s2_seq;
         s3_overbought <= overbought;
