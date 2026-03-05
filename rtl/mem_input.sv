@@ -17,7 +17,7 @@ module mem_input (
 
     // Load memory from hex file
     initial begin
-        $readmemh("memory.hex", mem);
+        $readmemh("rtl/memory.hex", mem);
     end
 
     // Data format (from LSB to MSB):
@@ -27,7 +27,7 @@ module mem_input (
     // [23:0]  = sequence (24-bit)
 
     // Read logic
-    always_ff @(posedge clk or negedge rst_n) begin
+    always_ff @(posedge clk) begin
         if (~rst_n) begin
             read_addr <= 10'h0;
             m_axis_tvalid <= 1'b0;

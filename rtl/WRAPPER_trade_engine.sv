@@ -89,6 +89,8 @@ module WRAPPER_trade_engine #(
   endgenerate
 
   trigger_arbiter #(.LANES(LANES), .OUT_W(TRIG_W)) u_arb (
+    .clk(clk),
+    .rst_n(rst_n),
     .in_valid(lane_trig_valid),
     .in_ready(lane_trig_ready),
     .in_data(lane_trig_data),
