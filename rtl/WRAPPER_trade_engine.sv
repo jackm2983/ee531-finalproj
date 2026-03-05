@@ -13,13 +13,13 @@ module WRAPPER_trade_engine #(
   input  logic        clk,
   input  logic        rst_n,
 
-  input  logic        tick_in_valid,
-  output logic        tick_in_ready,
-  input  logic [63:0] tick_in_data,
+  input  logic        s_axis_tvalid,
+  output logic        s_axis_tready,
+  input  logic [63:0] s_axis_tdata,
 
-  output logic        trig_out_valid,
-  input  logic        trig_out_ready,
-  output logic [8+1+SEQ_W+16-1:0] trig_out_data
+  output logic        m_axis_tvalid,
+  input  logic        m_axis_tready,
+  output logic [8+1+SEQ_W+16-1:0] m_axis_tdata
 );
 
   logic p_valid, p_ready;
@@ -28,14 +28,18 @@ module WRAPPER_trade_engine #(
   logic [SIZE_W-1:0]  p_size;
   logic [SEQ_W-1:0]   p_seq;
 
-  // needs AXI-stream interface into the tick parser
-  // AXI-stream_interface();
+  // unused axis signals
+  logic s_axis_tlast;   // optional framing
+  logic [7:0]  s_axis_tuser; // optional metadata
+  assign s_axis_tlast  = 1'b0;    
+  assign s_axis_tuser  = 8'h00; 
+
 
   tick_parser #(.PRICE_W(PRICE_W), .SIZE_W(SIZE_W), .SEQ_W(SEQ_W)) u_parser (
     .clk(clk), .rst_n(rst_n),
-    .in_valid(tick_in_valid),
-    .in_ready(tick_in_ready),
-    .in_data(tick_in_data),
+    .in_valid(s_axis_tvalid),
+    .in_ready(s_axis_tready),
+    .in_data(s_axis_tdata),
     .out_valid(p_valid),
     .out_ready(p_ready),
     .out_symbol(p_symbol),
@@ -88,9 +92,9 @@ module WRAPPER_trade_engine #(
     .in_valid(lane_trig_valid),
     .in_ready(lane_trig_ready),
     .in_data(lane_trig_data),
-    .out_valid(trig_out_valid),
-    .out_ready(trig_out_ready),
-    .out_data(trig_out_data)
+    .out_valid(m_axis_tvalid),
+    .out_ready(m_axis_tready),
+    .out_data(m_axis_tdata)
   );
 
 endmodule
