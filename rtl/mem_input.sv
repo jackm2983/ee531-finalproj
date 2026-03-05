@@ -9,7 +9,7 @@ module mem_input (
     input  logic        m_axis_tready,
     output logic [63:0] m_axis_tdata
 );
-
+ 
     // Stock data memory (1024 entries of 64-bit data)
     logic [63:0] mem [0:1023];
     logic [9:0]  read_addr;
@@ -17,7 +17,7 @@ module mem_input (
 
     // Load memory from hex file
     initial begin
-        $readmemh("rtl/memory.hex", mem);
+        $readmemh("memory.hex", mem);
     end
 
     // Data format (from LSB to MSB):
